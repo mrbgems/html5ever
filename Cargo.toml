@@ -1,0 +1,10 @@
+[package]
+name = "mruby-html5ever"
+version = "0.0.1"
+
+[lib]
+name = "mruby_html5ever"
+crate-type = ["staticlib"]
+
+[dependencies]
+html5ever = "*"
