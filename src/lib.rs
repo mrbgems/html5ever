@@ -18,6 +18,15 @@ struct RcDomWrapper {
   value: Handle,
 }
 
+fn check_parse_error(mrb: mrusty::MrubyType, str: &str, dom: RcDom) -> Value {
+  if !dom.errors.is_empty() {
+    println!("html5ever parse error (`{}`):\n  {}", str, dom.errors.join("\n  "));
+    mrb.nil()
+  } else {
+    mrb.obj(RcDomWrapper { value: dom.document })
+  }
+}
+
 const DEFAULT_PARSER_OPTS: ParseOpts = ParseOpts {
   tokenizer: html5ever::tokenizer::TokenizerOpts {
     exact_errors: true,
@@ -65,19 +74,13 @@ mrusty_class!(RcDomWrapper, "RcDom", {
 
   def_self!("parse_document", |mrb, _slf: Class, str: (&str)| {
     let dom = parse_document(RcDom::default(), DEFAULT_PARSER_OPTS).one(str);
-    for i in dom.errors.iter() {
-      println!("html5ever parse error({}): {}", str, i);
-    }
-    mrb.obj(RcDomWrapper { value: dom.document })
+    check_parse_error(mrb, str, dom)
   });
 
   def_self!("parse_fragment", |mrb, _slf: Class, str: (&str)| {
     let dom = parse_fragment(
       RcDom::default(), DEFAULT_PARSER_OPTS, qualname!(html, "body"), vec![]).one(str);
-    for i in dom.errors.iter() {
-      println!("html5ever parse error({}): {}", str, i);
-    }
-    mrb.obj(RcDomWrapper { value: dom.document })
+    check_parse_error(mrb, str, dom)
   });
 });
 
