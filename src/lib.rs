@@ -6,10 +6,9 @@ extern crate selectors;
 
 use html5ever::ParseOpts;
 use html5ever::{parse_fragment, parse_document, serialize};
-use html5ever::rcdom::RcDom;
-use html5ever::rcdom::Handle;
+use html5ever::rcdom::{Handle, NodeEnum, RcDom};
 
-use mrusty::{MrubyFile, MrubyImpl, Value};
+use mrusty::{MrubyFile, MrubyImpl, MrValue, Value};
 
 use tendril::TendrilSink;
 
@@ -70,6 +69,17 @@ mrusty_class!(RcDomWrapper, "RcDom", {
           value: unsafe { std::mem::transmute::<_, Handle>(weak) } })
       },
     }
+  });
+
+  def!("type", |mrb, slf: (&RcDomWrapper)| {
+    let sym = match slf.value.borrow().node {
+      NodeEnum::Document => "document",
+      NodeEnum::Doctype(_, _, _) => "doctype",
+      NodeEnum::Text(_) => "text",
+      NodeEnum::Comment(_) => "comment",
+      NodeEnum::Element(_, _, _) => "element",
+    };
+    Value::new(mrb.clone(), unsafe { MrValue::symbol_lit(mrb.borrow().mrb, sym) })
   });
 
   def_self!("parse_document", |mrb, _slf: Class, str: (&str)| {

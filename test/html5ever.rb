@@ -26,3 +26,9 @@ assert 'RcDom#parent' do
   parsed = RcDom.parse_fragment str
   assert_equal parsed.serialize, parsed.children[0].parent.serialize
 end
+
+assert 'RcDom#type' do
+  parsed = RcDom.parse_document("<!doctype html>")
+  assert_equal :document, parsed.type
+  assert_equal :element, parsed.children[1].type
+end
