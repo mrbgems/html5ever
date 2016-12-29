@@ -6,7 +6,7 @@ extern crate selectors;
 
 use html5ever::ParseOpts;
 use html5ever::{parse_fragment, parse_document, serialize};
-use html5ever::rcdom::{Handle, NodeEnum, RcDom};
+use html5ever::rcdom::{Handle, NodeEnum, RcDom, ElementEnum};
 
 use mrusty::{MrubyFile, MrubyImpl, MrValue, Value};
 
@@ -24,6 +24,10 @@ fn check_parse_error(mrb: mrusty::MrubyType, str: &str, dom: RcDom) -> Value {
   } else {
     mrb.obj(RcDomWrapper { value: dom.document })
   }
+}
+
+fn symbol(mrb: &mrusty::MrubyType, str: &'static str) -> Value {
+  Value::new(mrb.clone(), unsafe { MrValue::symbol_lit(mrb.borrow().mrb, str) })
 }
 
 const DEFAULT_PARSER_OPTS: ParseOpts = ParseOpts {
@@ -79,7 +83,80 @@ mrusty_class!(RcDomWrapper, "RcDom", {
       NodeEnum::Comment(_) => "comment",
       NodeEnum::Element(_, _, _) => "element",
     };
-    Value::new(mrb.clone(), unsafe { MrValue::symbol_lit(mrb.borrow().mrb, sym) })
+    symbol(&mrb, sym)
+  });
+
+  def!("doctype", |mrb, slf: (&RcDomWrapper)| {
+    let ref node = slf.value.borrow().node;
+    match *node {
+      NodeEnum::Doctype(ref name, ref public, ref system) =>
+        mrb.array(vec![mrb.string(&*name), mrb.string(&*public), mrb.string(&*system)]),
+      _ => mrb.nil(),
+    }
+  });
+
+  def!("text", |mrb, slf: (&RcDomWrapper)| {
+    let ref node = slf.value.borrow().node;
+    match *node {
+      NodeEnum::Text(ref txt) => mrb.string(&*txt),
+      _ => mrb.nil(),
+    }
+  });
+
+  def!("comment", |mrb, slf: (&RcDomWrapper)| {
+    let ref node = slf.value.borrow().node;
+    match *node {
+      NodeEnum::Comment(ref cmt) => mrb.string(&*cmt),
+      _ => mrb.nil(),
+    }
+  });
+
+  def!("namespace", |mrb, slf: (&RcDomWrapper)| {
+    let ref node = slf.value.borrow().node;
+    match *node {
+      NodeEnum::Element(ref name, _, _) => mrb.string(&*name.ns),
+      _ => mrb.nil(),
+    }
+  });
+
+  def!("name", |mrb, slf: (&RcDomWrapper)| {
+    let ref node = slf.value.borrow().node;
+    match *node {
+      NodeEnum::Element(ref name, _, _) => mrb.string(&*name.local),
+      _ => mrb.nil(),
+    }
+  });
+
+  def!("element_type", |mrb, slf: (&RcDomWrapper)| {
+    let ref node = slf.value.borrow().node;
+    match *node {
+      NodeEnum::Element(_, ref t, _) => match t {
+        &ElementEnum::Normal => mrb.array(vec![symbol(&mrb, "normal")]),
+        &ElementEnum::Script(l) => mrb.array(vec![symbol(&mrb, "script"), mrb.bool(l)]),
+        &ElementEnum::Template(ref t) =>
+          mrb.array(vec![symbol(&mrb, "template"), mrb.obj(RcDomWrapper { value: t.clone() })]),
+        &ElementEnum::AnnotationXml(a) => mrb.array(vec![symbol(&mrb, "annotation_xml"), mrb.bool(a)]),
+      },
+      _ => mrb.nil(),
+    }
+  });
+
+  def!("attributes", |mrb, slf: (&RcDomWrapper)| {
+    let ref node = slf.value.borrow().node;
+    match *node {
+      NodeEnum::Element(_, _, ref attrs) =>
+        mrb.hash(attrs.iter().map(|v| (mrb.string(&*v.name.local), mrb.string(&*v.value)))),
+      _ => mrb.nil(),
+    }
+  });
+
+  def!("attribute_namespaces", |mrb, slf: (&RcDomWrapper)| {
+    let ref node = slf.value.borrow().node;
+    match *node {
+      NodeEnum::Element(_, _, ref attrs) =>
+        mrb.hash(attrs.iter().map(|v| (mrb.string(&*v.name.local), mrb.string(&*v.name.ns)))),
+      _ => mrb.nil(),
+    }
   });
 
   def_self!("parse_document", |mrb, _slf: Class, str: (&str)| {
